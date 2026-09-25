@@ -1535,35 +1535,10 @@ Core Banking,SYS-505,Ian Malcolm,Sarah Jenkins,ISS-1012,Cleartext transmission o
         }
       });
 
-      // Direct Local File Access via File System Access API with input fallback
-      elements.browseFileBtn.addEventListener('click', async () => {
-        if ('showOpenFilePicker' in window) {
-          try {
-            const [fileHandle] = await window.showOpenFilePicker({
-              types: [
-                {
-                  description: 'CSV Files',
-                  accept: {
-                    'text/csv': ['.csv'],
-                    'text/plain': ['.csv', '.txt']
-                  }
-                }
-              ],
-              multiple: false
-            });
-            const file = await fileHandle.getFile();
-            handleDirectLocalFile(file);
-          } catch (err) {
-            // User aborted or canceled picker
-            if (err.name !== 'AbortError') {
-              console.warn('File System Access API error, using standard picker fallback:', err);
-              elements.csvFileInput.click();
-            }
-          }
-        } else {
-          // Standard browser fallback
-          elements.csvFileInput.click();
-        }
+      // Direct Local File Access: trigger file input directly for reliable cross-browser execution
+      elements.browseFileBtn.addEventListener('click', () => {
+        elements.csvFileInput.value = '';
+        elements.csvFileInput.click();
       });
 
       elements.csvFileInput.addEventListener('change', (e) => {
