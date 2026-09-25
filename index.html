@@ -167,58 +167,59 @@
   <main class="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 max-w-7xl w-full mx-auto flex flex-col gap-6">
 
     <!-- 1. EMPTY STATE / FILE DROPZONE -->
+    <!-- 1. EMPTY STATE / DIRECT LOCAL FILE ACCESS -->
     <section id="dropzoneSection" class="transition-all duration-300 flex flex-col items-center justify-center py-10 sm:py-16">
-      <div class="w-full max-w-2xl bg-white dark:bg-dark-card border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl p-8 sm:p-12 text-center shadow-xl shadow-slate-200/50 dark:shadow-none transition-all" id="dropzone">
+      <div class="w-full max-w-2xl bg-white dark:bg-dark-card border border-slate-200 dark:border-slate-800 rounded-2xl p-8 sm:p-12 text-center shadow-xl shadow-slate-200/50 dark:shadow-none transition-all">
         
         <div class="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-5 rounded-2xl bg-brand-50 dark:bg-brand-950/50 text-brand-600 dark:text-brand-400 flex items-center justify-center text-3xl sm:text-4xl shadow-inner border border-brand-100 dark:border-brand-900/40">
-          <i class="fa-solid fa-cloud-arrow-up"></i>
+          <i class="fa-solid fa-hard-drive"></i>
         </div>
 
         <h2 class="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white mb-2">
-          Drop your CSV file here
+          Direct Local Drive Access
         </h2>
         <p class="text-sm text-slate-500 dark:text-slate-400 mb-6 max-w-md mx-auto">
-          Drag and drop your local spreadsheet or browse your filesystem. Instant analysis, type inference &amp; visualization.
+          Read any CSV file directly from your local drive. No uploading, no server transfers, and no remote storage.
         </p>
 
-        <!-- Hidden input for file selection -->
+        <!-- Hidden input for file selection fallback -->
         <input type="file" id="csvFileInput" accept=".csv,text/csv,text/plain" class="hidden" />
 
         <div class="flex flex-wrap items-center justify-center gap-3">
-          <button id="browseFileBtn" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white font-medium text-sm shadow-md shadow-brand-500/20 transition-all cursor-pointer">
+          <button id="browseFileBtn" class="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white font-medium text-sm shadow-md shadow-brand-500/20 transition-all cursor-pointer">
             <i class="fa-solid fa-folder-open"></i>
-            <span>Browse Computer</span>
+            <span>Select Local CSV File</span>
           </button>
           
-          <button id="loadSampleHeroBtn" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium text-sm border border-slate-200 dark:border-slate-700 transition-all cursor-pointer">
+          <button id="loadSampleHeroBtn" class="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium text-sm border border-slate-200 dark:border-slate-700 transition-all cursor-pointer">
             <i class="fa-solid fa-wand-magic-sparkles text-brand-500"></i>
-            <span>Load Demo Sales CSV</span>
+            <span>Load Sample Data</span>
           </button>
         </div>
 
         <!-- Privacy Assurance Banner -->
         <div class="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800 flex items-center justify-center gap-2 text-xs text-slate-500 dark:text-slate-400">
           <i class="fa-solid fa-shield-halved text-emerald-500"></i>
-          <span><strong>100% Client-Side Privacy:</strong> Your data never leaves your device or browser.</span>
+          <span><strong>Direct Disk Read:</strong> 100% Client-side in-memory processing. Zero network transmission.</span>
         </div>
       </div>
 
       <!-- Feature Badges -->
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-2xl mt-6">
         <div class="p-4 rounded-xl bg-white dark:bg-dark-card border border-slate-200/80 dark:border-dark-border text-center shadow-sm">
-          <i class="fa-solid fa-bolt text-amber-500 mb-1 text-lg"></i>
-          <h4 class="font-semibold text-xs text-slate-800 dark:text-slate-200">High Performance</h4>
-          <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Streamlined parsing for large datasets</p>
+          <i class="fa-solid fa-microchip text-amber-500 mb-1 text-lg"></i>
+          <h4 class="font-semibold text-xs text-slate-800 dark:text-slate-200">Local Memory Pipeline</h4>
+          <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Streamlined direct disk-to-RAM parsing</p>
         </div>
         <div class="p-4 rounded-xl bg-white dark:bg-dark-card border border-slate-200/80 dark:border-dark-border text-center shadow-sm">
-          <i class="fa-solid fa-filter text-brand-500 mb-1 text-lg"></i>
-          <h4 class="font-semibold text-xs text-slate-800 dark:text-slate-200">Instant Filters &amp; Stats</h4>
-          <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Real-time stats, queries &amp; sorting</p>
+          <i class="fa-solid fa-layer-group text-brand-500 mb-1 text-lg"></i>
+          <h4 class="font-semibold text-xs text-slate-800 dark:text-slate-200">Hierarchical Grouping</h4>
+          <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Multi-level collapsible grouping &amp; stats</p>
         </div>
         <div class="p-4 rounded-xl bg-white dark:bg-dark-card border border-slate-200/80 dark:border-dark-border text-center shadow-sm">
-          <i class="fa-solid fa-chart-column text-indigo-500 mb-1 text-lg"></i>
-          <h4 class="font-semibold text-xs text-slate-800 dark:text-slate-200">Visual Analytics</h4>
-          <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Instant bar, line &amp; pie charts</p>
+          <i class="fa-solid fa-table-columns text-indigo-500 mb-1 text-lg"></i>
+          <h4 class="font-semibold text-xs text-slate-800 dark:text-slate-200">Excel Range Removal</h4>
+          <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Batch prune ranges like A1:G1, I1:K1</p>
         </div>
       </div>
     </section>
@@ -1530,22 +1531,48 @@ Core Banking,SYS-505,Ian Malcolm,Sarah Jenkins,ISS-1012,Cleartext transmission o
       dropzone.addEventListener('drop', (e) => {
         const files = e.dataTransfer.files;
         if (files && files.length > 0) {
-          handleFileInput(files[0]);
+          handleDirectLocalFile(files[0]);
         }
       });
 
-      // Traditional file browse button
-      elements.browseFileBtn.addEventListener('click', () => {
-        elements.csvFileInput.click();
+      // Direct Local File Access via File System Access API with input fallback
+      elements.browseFileBtn.addEventListener('click', async () => {
+        if ('showOpenFilePicker' in window) {
+          try {
+            const [fileHandle] = await window.showOpenFilePicker({
+              types: [
+                {
+                  description: 'CSV Files',
+                  accept: {
+                    'text/csv': ['.csv'],
+                    'text/plain': ['.csv', '.txt']
+                  }
+                }
+              ],
+              multiple: false
+            });
+            const file = await fileHandle.getFile();
+            handleDirectLocalFile(file);
+          } catch (err) {
+            // User aborted or canceled picker
+            if (err.name !== 'AbortError') {
+              console.warn('File System Access API error, using standard picker fallback:', err);
+              elements.csvFileInput.click();
+            }
+          }
+        } else {
+          // Standard browser fallback
+          elements.csvFileInput.click();
+        }
       });
 
       elements.csvFileInput.addEventListener('change', (e) => {
         if (e.target.files && e.target.files.length > 0) {
-          handleFileInput(e.target.files[0]);
+          handleDirectLocalFile(e.target.files[0]);
         }
       });
 
-      function handleFileInput(file) {
+      function handleDirectLocalFile(file) {
         if (!file.name.toLowerCase().endsWith('.csv') && file.type !== 'text/csv' && file.type !== 'text/plain') {
           showToast('Please select a valid CSV file (.csv)', 'error');
           return;
@@ -1555,10 +1582,10 @@ Core Banking,SYS-505,Ian Malcolm,Sarah Jenkins,ISS-1012,Cleartext transmission o
 
       // Sample Data Loaders
       elements.loadSampleHeroBtn.addEventListener('click', () => {
-        parseCSVInput(SAMPLE_CSV_DATA, 'ecommerce_sales_sample.csv', new Blob([SAMPLE_CSV_DATA]).size);
+        parseCSVInput(SAMPLE_CSV_DATA, 'sample_dataset.csv', new Blob([SAMPLE_CSV_DATA]).size);
       });
       elements.navSampleBtn.addEventListener('click', () => {
-        parseCSVInput(SAMPLE_CSV_DATA, 'ecommerce_sales_sample.csv', new Blob([SAMPLE_CSV_DATA]).size);
+        parseCSVInput(SAMPLE_CSV_DATA, 'sample_dataset.csv', new Blob([SAMPLE_CSV_DATA]).size);
       });
 
       // Clear Dataset
