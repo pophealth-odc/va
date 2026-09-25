@@ -1,0 +1,1947 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DataSphere &mdash; Client-Side CSV Reader & Analytics</title>
+
+  <!-- Tailwind CSS CDN with dark mode support -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              200: '#c7d2fe',
+              300: '#a5b4fc',
+              400: '#818cf8',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+              800: '#3730a3',
+              900: '#312e81',
+            },
+            dark: {
+              bg: '#0B0F17',
+              card: '#111827',
+              border: '#1F2937',
+              hover: '#1a2234'
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+            mono: ['JetBrains Mono', 'Fira Code', 'monospace']
+          }
+        }
+      }
+    };
+  </script>
+
+  <!-- FontAwesome 6 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" />
+
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <!-- PapaParse v5.4.1 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+  <style>
+    /* Custom Scrollbar styling */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(156, 163, 175, 0.4);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(156, 163, 175, 0.7);
+    }
+    .dark ::-webkit-scrollbar-thumb {
+      background: rgba(75, 85, 99, 0.5);
+    }
+    .dark ::-webkit-scrollbar-thumb:hover {
+      background: rgba(107, 114, 128, 0.8);
+    }
+
+    /* Subtle grid pattern background */
+    .bg-grid-pattern {
+      background-size: 24px 24px;
+      background-image: linear-gradient(to right, rgba(0, 0, 0, 0.04) 1px, transparent 1px),
+                        linear-gradient(to bottom, rgba(0, 0, 0, 0.04) 1px, transparent 1px);
+    }
+    .dark .bg-grid-pattern {
+      background-image: linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                        linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    }
+
+    /* Animation pulse border */
+    @keyframes pulse-subtle {
+      0%, 100% { border-color: rgba(99, 102, 241, 0.4); }
+      50% { border-color: rgba(99, 102, 241, 0.9); }
+    }
+    .dragover {
+      animation: pulse-subtle 1.5s infinite ease-in-out;
+      background-color: rgba(99, 102, 241, 0.06) !important;
+      transform: scale(1.005);
+    }
+    .dark .dragover {
+      background-color: rgba(99, 102, 241, 0.12) !important;
+    }
+
+    /* Tab active indicator */
+    .tab-btn.active {
+      color: #6366f1;
+      border-bottom: 2px solid #6366f1;
+    }
+    .dark .tab-btn.active {
+      color: #818cf8;
+      border-bottom: 2px solid #818cf8;
+    }
+  </style>
+</head>
+
+<body class="h-full bg-slate-50 dark:bg-dark-bg text-slate-800 dark:text-slate-100 font-sans antialiased flex flex-col transition-colors duration-200">
+
+  <!-- ========================================================================= -->
+  <!-- Top Navigation Bar                                                        -->
+  <!-- ========================================================================= -->
+  <header class="sticky top-0 z-40 bg-white/80 dark:bg-dark-card/80 backdrop-blur-md border-b border-slate-200/80 dark:border-dark-border px-4 sm:px-6 py-3.5 flex items-center justify-between transition-colors">
+    <div class="flex items-center space-x-3">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-400 flex items-center justify-center text-white shadow-md shadow-brand-500/20">
+        <i class="fa-solid fa-table-cells text-base"></i>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="font-bold text-lg tracking-tight bg-gradient-to-r from-slate-900 via-brand-700 to-brand-500 dark:from-white dark:via-slate-200 dark:to-brand-400 bg-clip-text text-transparent">DataSphere</span>
+          <span class="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60 flex items-center gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Client-Side Only
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Actions / Theme Toggle -->
+    <div class="flex items-center space-x-2 sm:space-x-3">
+      <!-- Active file chip (hidden by default) -->
+      <div id="activeFileChip" class="hidden items-center gap-2 px-3 py-1 rounded-lg bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-600 dark:text-slate-300">
+        <i class="fa-regular fa-file-lines text-brand-500"></i>
+        <span id="activeFileName" class="max-w-[140px] sm:max-w-[200px] truncate font-medium">data.csv</span>
+        <button id="clearDataBtn" title="Unload dataset" class="hover:text-red-500 ml-1 transition-colors">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Theme Switcher -->
+      <button id="themeToggleBtn" aria-label="Toggle theme" class="w-9 h-9 rounded-lg flex items-center justify-center border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-all shadow-sm">
+        <i id="themeIcon" class="fa-solid fa-moon"></i>
+      </button>
+
+      <!-- Load Sample Button (Small) -->
+      <button id="navSampleBtn" class="hidden sm:inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-colors">
+        <i class="fa-solid fa-wand-magic-sparkles text-brand-500"></i>
+        <span>Sample Dataset</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ========================================================================= -->
+  <!-- Toast Notification Container                                              -->
+  <!-- ========================================================================= -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm pointer-events-none"></div>
+
+  <!-- ========================================================================= -->
+  <!-- Main View Area                                                            -->
+  <!-- ========================================================================= -->
+  <main class="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 max-w-7xl w-full mx-auto flex flex-col gap-6">
+
+    <!-- 1. EMPTY STATE / FILE DROPZONE -->
+    <section id="dropzoneSection" class="transition-all duration-300 flex flex-col items-center justify-center py-10 sm:py-16">
+      <div class="w-full max-w-2xl bg-white dark:bg-dark-card border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl p-8 sm:p-12 text-center shadow-xl shadow-slate-200/50 dark:shadow-none transition-all" id="dropzone">
+        
+        <div class="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-5 rounded-2xl bg-brand-50 dark:bg-brand-950/50 text-brand-600 dark:text-brand-400 flex items-center justify-center text-3xl sm:text-4xl shadow-inner border border-brand-100 dark:border-brand-900/40">
+          <i class="fa-solid fa-cloud-arrow-up"></i>
+        </div>
+
+        <h2 class="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white mb-2">
+          Drop your CSV file here
+        </h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mb-6 max-w-md mx-auto">
+          Drag and drop your local spreadsheet or browse your filesystem. Instant analysis, type inference &amp; visualization.
+        </p>
+
+        <!-- Hidden input for file selection -->
+        <input type="file" id="csvFileInput" accept=".csv,text/csv,text/plain" class="hidden" />
+
+        <div class="flex flex-wrap items-center justify-center gap-3">
+          <button id="browseFileBtn" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white font-medium text-sm shadow-md shadow-brand-500/20 transition-all cursor-pointer">
+            <i class="fa-solid fa-folder-open"></i>
+            <span>Browse Computer</span>
+          </button>
+          
+          <button id="loadSampleHeroBtn" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium text-sm border border-slate-200 dark:border-slate-700 transition-all cursor-pointer">
+            <i class="fa-solid fa-wand-magic-sparkles text-brand-500"></i>
+            <span>Load Demo Sales CSV</span>
+          </button>
+        </div>
+
+        <!-- Privacy Assurance Banner -->
+        <div class="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800 flex items-center justify-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+          <i class="fa-solid fa-shield-halved text-emerald-500"></i>
+          <span><strong>100% Client-Side Privacy:</strong> Your data never leaves your device or browser.</span>
+        </div>
+      </div>
+
+      <!-- Feature Badges -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-2xl mt-6">
+        <div class="p-4 rounded-xl bg-white dark:bg-dark-card border border-slate-200/80 dark:border-dark-border text-center shadow-sm">
+          <i class="fa-solid fa-bolt text-amber-500 mb-1 text-lg"></i>
+          <h4 class="font-semibold text-xs text-slate-800 dark:text-slate-200">High Performance</h4>
+          <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Streamlined parsing for large datasets</p>
+        </div>
+        <div class="p-4 rounded-xl bg-white dark:bg-dark-card border border-slate-200/80 dark:border-dark-border text-center shadow-sm">
+          <i class="fa-solid fa-filter text-brand-500 mb-1 text-lg"></i>
+          <h4 class="font-semibold text-xs text-slate-800 dark:text-slate-200">Instant Filters &amp; Stats</h4>
+          <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Real-time stats, queries &amp; sorting</p>
+        </div>
+        <div class="p-4 rounded-xl bg-white dark:bg-dark-card border border-slate-200/80 dark:border-dark-border text-center shadow-sm">
+          <i class="fa-solid fa-chart-column text-indigo-500 mb-1 text-lg"></i>
+          <h4 class="font-semibold text-xs text-slate-800 dark:text-slate-200">Visual Analytics</h4>
+          <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Instant bar, line &amp; pie charts</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Progress Indicator / Loader (Hidden by default) -->
+    <div id="parsingLoader" class="hidden my-8 p-6 rounded-2xl bg-white dark:bg-dark-card border border-slate-200 dark:border-dark-border shadow-lg max-w-xl mx-auto w-full text-center">
+      <div class="w-10 h-10 border-4 border-brand-200 border-t-brand-600 rounded-full animate-spin mx-auto mb-4"></div>
+      <h3 class="font-semibold text-slate-800 dark:text-slate-200 text-sm" id="parsingStatusText">Parsing CSV and analyzing types...</h3>
+      <div class="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 mt-3 overflow-hidden">
+        <div id="parseProgressBar" class="bg-brand-600 h-2 rounded-full transition-all duration-200" style="width: 30%"></div>
+      </div>
+    </div>
+
+    <!-- 2. DATA LOADED WORKSPACE (Hidden until CSV parsed) -->
+    <div id="workspaceSection" class="hidden flex-col gap-6">
+
+      <!-- Summary KPI Metric Cards -->
+      <section class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        
+        <!-- Total Rows -->
+        <div class="bg-white dark:bg-dark-card p-4 rounded-xl border border-slate-200/80 dark:border-dark-border shadow-sm flex items-center justify-between">
+          <div>
+            <p class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Rows</p>
+            <p id="kpiTotalRows" class="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-1">0</p>
+            <p id="kpiFilteredRowsSub" class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">All rows active</p>
+          </div>
+          <div class="w-10 h-10 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-brand-600 dark:text-brand-400 flex items-center justify-center">
+            <i class="fa-solid fa-list-ol text-lg"></i>
+          </div>
+        </div>
+
+        <!-- Total Columns -->
+        <div class="bg-white dark:bg-dark-card p-4 rounded-xl border border-slate-200/80 dark:border-dark-border shadow-sm flex items-center justify-between">
+          <div>
+            <p class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Columns</p>
+            <p id="kpiTotalCols" class="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-1">0</p>
+            <p id="kpiColTypesSub" class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">0 numeric &bull; 0 text</p>
+          </div>
+          <div class="w-10 h-10 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+            <i class="fa-solid fa-table-columns text-lg"></i>
+          </div>
+        </div>
+
+        <!-- File Size -->
+        <div class="bg-white dark:bg-dark-card p-4 rounded-xl border border-slate-200/80 dark:border-dark-border shadow-sm flex items-center justify-between">
+          <div>
+            <p class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">File Size</p>
+            <p id="kpiFileSize" class="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-1">0 KB</p>
+            <p id="kpiDelimiterSub" class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">Delimiter: Comma</p>
+          </div>
+          <div class="w-10 h-10 rounded-lg bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+            <i class="fa-regular fa-hard-drive text-lg"></i>
+          </div>
+        </div>
+
+        <!-- Processing Time -->
+        <div class="bg-white dark:bg-dark-card p-4 rounded-xl border border-slate-200/80 dark:border-dark-border shadow-sm flex items-center justify-between">
+          <div>
+            <p class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Parse Time</p>
+            <p id="kpiParseTime" class="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-1">0 ms</p>
+            <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">100% In-Memory</p>
+          </div>
+          <div class="w-10 h-10 rounded-lg bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+            <i class="fa-solid fa-stopwatch text-lg"></i>
+          </div>
+        </div>
+      </section>
+
+      <!-- Top Action Bar (Title & Export) -->
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-dark-border pb-3">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-table text-brand-500"></i>
+          <h2 class="text-sm font-bold text-slate-800 dark:text-slate-200">Data Table</h2>
+        </div>
+
+        <!-- Export Dropdown / Action Buttons -->
+        <div class="flex items-center gap-2">
+          <div class="relative inline-block text-left">
+            <button id="exportDropdownBtn" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold shadow-sm transition-all">
+              <i class="fa-solid fa-download"></i>
+              <span>Export</span>
+              <i class="fa-solid fa-chevron-down text-[10px] ml-0.5"></i>
+            </button>
+            <div id="exportMenu" class="hidden absolute right-0 mt-1 w-44 rounded-xl bg-white dark:bg-dark-card border border-slate-200 dark:border-dark-border shadow-xl py-1 z-30">
+              <button id="exportCsvBtn" class="w-full text-left px-3.5 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2">
+                <i class="fa-solid fa-file-csv text-emerald-500"></i> Export Filtered CSV
+              </button>
+              <button id="exportJsonBtn" class="w-full text-left px-3.5 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2">
+                <i class="fa-solid fa-file-code text-amber-500"></i> Export Filtered JSON
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================================================================== -->
+      <!-- DATA TABLE VIEW & FILTER TOOLBAR                                     -->
+      <!-- ===================================================================== -->
+      <section id="tab-table" class="tab-pane flex flex-col gap-4">
+        
+        <!-- Filter, Column Visibility & Global Search Bar -->
+        <div class="bg-white dark:bg-dark-card p-4 rounded-xl border border-slate-200/80 dark:border-dark-border shadow-sm flex flex-col gap-3">
+          
+          <div class="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+            <!-- Global Search -->
+            <div class="relative flex-1">
+              <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+              <input type="text" id="globalSearchInput" placeholder="Search across all columns..." class="w-full pl-8 pr-8 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 text-slate-800 dark:text-slate-100 placeholder-slate-400 transition-all" />
+              <button id="clearSearchBtn" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs">
+                <i class="fa-solid fa-circle-xmark"></i>
+              </button>
+            </div>
+
+            <div class="flex items-center gap-2 flex-wrap">
+              <!-- Advanced Filter Toggle Button -->
+              <button id="toggleFilterPanelBtn" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium border border-slate-200 dark:border-slate-700 transition-colors">
+                <i class="fa-solid fa-filter text-brand-500"></i>
+                <span>Column Filter</span>
+                <span id="activeFilterBadge" class="hidden w-2 h-2 rounded-full bg-brand-500"></span>
+              </button>
+
+              <!-- Multi-Column Grouping Popover Toggle -->
+              <div class="relative">
+                <button id="groupingPopoverBtn" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium border border-slate-200 dark:border-slate-700 transition-colors">
+                  <i class="fa-solid fa-layer-group text-indigo-500"></i>
+                  <span>Group By (<span id="groupedColCount">0</span>)</span>
+                  <span id="groupActiveBadge" class="hidden w-2 h-2 rounded-full bg-indigo-500"></span>
+                  <i class="fa-solid fa-chevron-down text-[10px]"></i>
+                </button>
+
+                <!-- Popover for Multi-Column Grouping Selection & Ordering -->
+                <div id="groupingPopover" class="hidden absolute right-0 mt-1 w-80 max-h-96 overflow-y-auto rounded-xl bg-white dark:bg-dark-card border border-slate-200 dark:border-dark-border shadow-2xl p-3 z-30 flex flex-col gap-2.5">
+                  <div class="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800 text-xs font-semibold">
+                    <span class="flex items-center gap-1.5">
+                      <i class="fa-solid fa-layer-group text-indigo-500"></i> Group Hierarchy
+                    </span>
+                    <button id="clearAllGroupingBtn" class="text-[11px] text-rose-600 dark:text-rose-400 hover:underline">Clear Groups</button>
+                  </div>
+
+                  <!-- Active Group Chain Badges -->
+                  <div id="activeGroupChipsContainer" class="flex flex-wrap gap-1 p-2 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 min-h-[38px] items-center">
+                    <span id="noGroupsPlaceholder" class="text-[11px] text-slate-400 italic">No columns selected for grouping</span>
+                  </div>
+
+                  <!-- Quick Presets -->
+                  <div class="flex items-center justify-between pt-1">
+                    <span class="text-[11px] font-semibold text-slate-600 dark:text-slate-400">Presets:</span>
+                    <button id="presetHierarchyBtn" class="text-[11px] px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 transition-colors">
+                      Solution &gt; System &gt; P1 &gt; ODC
+                    </button>
+                  </div>
+
+                  <div class="text-[11px] font-medium text-slate-500 dark:text-slate-400 pt-1">Select columns to add to hierarchy:</div>
+                  
+                  <!-- Checkbox list of all columns -->
+                  <div id="groupingCheckboxList" class="flex flex-col gap-1 text-xs max-h-44 overflow-y-auto pr-1">
+                    <!-- Populated dynamically -->
+                  </div>
+                </div>
+              </div>
+
+              <!-- Columns Visibility Dropdown Toggle -->
+              <div class="relative">
+                <button id="columnVisibilityBtn" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium border border-slate-200 dark:border-slate-700 transition-colors">
+                  <i class="fa-solid fa-table-columns text-slate-500"></i>
+                  <span>Columns (<span id="visibleColCount">0</span>)</span>
+                  <i class="fa-solid fa-chevron-down text-[10px]"></i>
+                </button>
+
+                <!-- Popover for Column Checkboxes -->
+                <div id="columnVisibilityPopover" class="hidden absolute right-0 mt-1 w-64 max-h-80 overflow-y-auto rounded-xl bg-white dark:bg-dark-card border border-slate-200 dark:border-dark-border shadow-2xl p-3 z-30">
+                  <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-100 dark:border-slate-800 text-xs font-semibold">
+                    <span>Show/Hide Columns</span>
+                    <div class="space-x-1">
+                      <button id="showAllColsBtn" class="text-[11px] text-brand-600 hover:underline">All</button>
+                      <span class="text-slate-300">&bull;</span>
+                      <button id="resetColsBtn" class="text-[11px] text-brand-600 hover:underline">Reset</button>
+                    </div>
+                  </div>
+
+                  <!-- Quick Excel Column Range Remover -->
+                  <div class="mb-2 p-2 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800">
+                    <label class="text-[11px] font-medium text-slate-600 dark:text-slate-400 block mb-1">
+                      Excel Range / Batch Remove:
+                    </label>
+                    <div class="flex gap-1">
+                      <input type="text" id="excelRangeInput" placeholder='e.g. A:G, I:K, M:P, W, Y:AS...' class="w-full px-2 py-1 bg-white dark:bg-dark-card border border-slate-200 dark:border-slate-700 rounded text-[11px] font-mono focus:ring-1 focus:ring-brand-500" value="A:G, I:K, M:P, T:U, W, Y:AS, AX:BA, BF:BJ" />
+                      <button id="applyExcelRangeBtn" class="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded text-[11px] font-semibold whitespace-nowrap shadow-sm">
+                        Remove
+                      </button>
+                    </div>
+                    <p class="text-[10px] text-slate-400 mt-1">Supports letter ranges, <code>Range("A1:G1,...")</code> or numbers.</p>
+                  </div>
+
+                  <div id="columnCheckboxList" class="flex flex-col gap-1.5 text-xs">
+                    <!-- Populated dynamically -->
+                  </div>
+                </div>
+              </div>
+
+              <!-- Remove Duplicate Rows Button -->
+              <button id="removeDuplicatesBtn" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-950/50 hover:bg-amber-100 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 text-xs font-medium border border-amber-200 dark:border-amber-800/60 transition-colors shadow-sm" title="Remove duplicate rows across all columns or visible columns">
+                <i class="fa-solid fa-clone text-amber-500"></i>
+                <span>Remove Duplicates</span>
+              </button>
+
+              <!-- Reset All Filters -->
+              <button id="resetAllFiltersBtn" class="inline-flex items-center gap-1 px-3 py-2 rounded-lg text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors" title="Clear all active filters and search">
+                <i class="fa-solid fa-rotate-left"></i>
+                <span class="hidden sm:inline">Reset</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Collapsible Column Filter Builder Panel -->
+          <div id="filterPanel" class="hidden pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-col gap-3">
+            
+            <!-- Quick Preset Filter Buttons -->
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <i class="fa-solid fa-bolt text-amber-500"></i> Quick SLA &amp; Remediation Presets:
+                </span>
+                <span class="text-[11px] text-slate-400">Click to instantly apply rule</span>
+              </div>
+              <div class="flex flex-wrap gap-1.5" id="presetFiltersContainer">
+                <button type="button" data-preset="sla_lte_0" class="preset-filter-btn px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/50 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 text-xs font-medium border border-rose-200 dark:border-rose-800/60 transition-all flex items-center gap-1">
+                  <i class="fa-solid fa-triangle-exclamation text-rose-500 text-[10px]"></i> SLA &le; 0 (Breached)
+                </button>
+                <button type="button" data-preset="sla_lt_15" class="preset-filter-btn px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/50 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 text-xs font-medium border border-amber-200 dark:border-amber-800/60 transition-all flex items-center gap-1">
+                  <i class="fa-solid fa-clock text-amber-500 text-[10px]"></i> SLA &lt; 15 Days
+                </button>
+                <button type="button" data-preset="sla_lt_30" class="preset-filter-btn px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/50 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 text-xs font-medium border border-amber-200 dark:border-amber-800/60 transition-all flex items-center gap-1">
+                  <i class="fa-solid fa-clock text-amber-500 text-[10px]"></i> SLA &lt; 30 Days
+                </button>
+                <button type="button" data-preset="sla_lt_60" class="preset-filter-btn px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/50 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 text-xs font-medium border border-amber-200 dark:border-amber-800/60 transition-all flex items-center gap-1">
+                  <i class="fa-solid fa-clock text-amber-500 text-[10px]"></i> SLA &lt; 60 Days
+                </button>
+                <button type="button" data-preset="plan_remarks_empty" class="preset-filter-btn px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium border border-slate-200 dark:border-slate-700 transition-all flex items-center gap-1">
+                  <i class="fa-regular fa-comment text-slate-400 text-[10px]"></i> Plan Remarks is Blank
+                </button>
+                <button type="button" data-preset="start_date_empty" class="preset-filter-btn px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium border border-slate-200 dark:border-slate-700 transition-all flex items-center gap-1">
+                  <i class="fa-regular fa-calendar-xmark text-slate-400 text-[10px]"></i> Start Date is Blank
+                </button>
+                <button type="button" data-preset="end_date_empty" class="preset-filter-btn px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium border border-slate-200 dark:border-slate-700 transition-all flex items-center gap-1">
+                  <i class="fa-regular fa-calendar-xmark text-slate-400 text-[10px]"></i> End Date is Blank
+                </button>
+                <button type="button" data-preset="strategy_empty" class="preset-filter-btn px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium border border-slate-200 dark:border-slate-700 transition-all flex items-center gap-1">
+                  <i class="fa-solid fa-list-check text-slate-400 text-[10px]"></i> Strategy is Blank
+                </button>
+              </div>
+            </div>
+
+            <!-- Custom Rule Builder -->
+            <div class="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex flex-wrap items-center gap-2">
+              <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Custom rule:</span>
+              
+              <!-- Column Select -->
+              <select id="filterColumnSelect" class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs px-2.5 py-1.5 text-slate-700 dark:text-slate-200 focus:ring-1 focus:ring-brand-500">
+                <!-- Populated dynamically -->
+              </select>
+
+              <!-- Operator Select -->
+              <select id="filterOperatorSelect" class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs px-2.5 py-1.5 text-slate-700 dark:text-slate-200 focus:ring-1 focus:ring-brand-500">
+                <option value="contains">contains</option>
+                <option value="not_contains">does not contain</option>
+                <option value="equals">equals</option>
+                <option value="not_equals">not equals</option>
+                <option value="starts_with">starts with</option>
+                <option value="ends_with">ends with</option>
+                <option value="gt">&gt; greater than</option>
+                <option value="gte">&ge; greater or equal</option>
+                <option value="lt">&lt; less than</option>
+                <option value="lte">&le; less or equal</option>
+                <option value="is_empty">is empty / blank</option>
+                <option value="is_not_empty">is not empty</option>
+              </select>
+
+              <!-- Value Input -->
+              <input type="text" id="filterValueInput" placeholder="Filter value..." class="flex-1 min-w-[140px] bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs px-2.5 py-1.5 text-slate-700 dark:text-slate-200 focus:ring-1 focus:ring-brand-500" />
+
+              <!-- Apply & Clear Buttons -->
+              <button id="applyFilterRuleBtn" class="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors">
+                Apply Filter
+              </button>
+              <button id="clearFilterRuleBtn" class="px-2.5 py-1.5 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 rounded-lg text-xs">
+                Clear
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Data Table Container -->
+        <div class="bg-white dark:bg-dark-card rounded-xl border border-slate-200/80 dark:border-dark-border shadow-sm overflow-hidden flex flex-col">
+          <div class="overflow-x-auto relative min-h-[300px] max-h-[600px]">
+            <table class="w-full text-left text-xs border-collapse" id="dataTable">
+              <thead class="sticky top-0 bg-slate-100/95 dark:bg-slate-800/95 backdrop-blur-sm z-20 border-b border-slate-200 dark:border-slate-700">
+                <tr id="tableHeaderRow">
+                  <!-- Header columns generated dynamically -->
+                </tr>
+              </thead>
+              <tbody id="tableBody" class="divide-y divide-slate-100 dark:divide-slate-800 font-mono">
+                <!-- Rows injected here -->
+              </tbody>
+            </table>
+
+            <!-- Empty result message -->
+            <div id="noMatchingRowsMsg" class="hidden p-12 text-center">
+              <i class="fa-solid fa-filter-circle-xmark text-3xl text-slate-400 mb-3"></i>
+              <p class="font-semibold text-slate-700 dark:text-slate-300 text-sm">No matching records found</p>
+              <p class="text-xs text-slate-400 mt-1">Try relaxing your search terms or clearing column filters.</p>
+            </div>
+          </div>
+
+          <!-- Pagination & Row Count Footer -->
+          <div class="p-3.5 bg-slate-50 dark:bg-slate-900/60 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
+            <div class="flex items-center gap-2">
+              <span>Showing</span>
+              <span id="pageRangeStart" class="font-semibold text-slate-700 dark:text-slate-200">1</span>
+              <span>-</span>
+              <span id="pageRangeEnd" class="font-semibold text-slate-700 dark:text-slate-200">25</span>
+              <span>of</span>
+              <span id="pageRangeTotal" class="font-semibold text-slate-700 dark:text-slate-200">100</span>
+              <span>entries</span>
+            </div>
+
+            <!-- Page Size Selector & Controls -->
+            <div class="flex items-center gap-3">
+              <div class="flex items-center gap-1.5">
+                <label for="pageSizeSelect">Rows:</label>
+                <select id="pageSizeSelect" class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-2 py-1 text-xs text-slate-700 dark:text-slate-200 focus:ring-1 focus:ring-brand-500">
+                  <option value="10">10</option>
+                  <option value="25" selected>25</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                </select>
+              </div>
+
+              <!-- Pagination Navigation Buttons -->
+              <div class="flex items-center space-x-1">
+                <button id="btnFirstPage" class="p-1.5 rounded hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed text-slate-600 dark:text-slate-300" title="First Page">
+                  <i class="fa-solid fa-angles-left"></i>
+                </button>
+                <button id="btnPrevPage" class="p-1.5 rounded hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed text-slate-600 dark:text-slate-300" title="Previous Page">
+                  <i class="fa-solid fa-angle-left"></i>
+                </button>
+                <span class="px-2 text-slate-700 dark:text-slate-200 font-medium">
+                  Page <span id="currentPageNum">1</span> / <span id="totalPageNum">1</span>
+                </span>
+                <button id="btnNextPage" class="p-1.5 rounded hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed text-slate-600 dark:text-slate-300" title="Next Page">
+                  <i class="fa-solid fa-angle-right"></i>
+                </button>
+                <button id="btnLastPage" class="p-1.5 rounded hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed text-slate-600 dark:text-slate-300" title="Last Page">
+                  <i class="fa-solid fa-angles-right"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+
+    </div>
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- Footer                                                                    -->
+  <!-- ========================================================================= -->
+  <footer class="mt-auto border-t border-slate-200/80 dark:border-dark-border py-4 px-6 text-center text-xs text-slate-400 dark:text-slate-500 bg-white dark:bg-dark-card transition-colors">
+    <p>DataSphere Client-Side CSV Suite &bull; Built with HTML5 File API &amp; PapaParse &bull; Zero Server Dependencies</p>
+  </footer>
+
+  <!-- ========================================================================= -->
+  <!-- JAVASCRIPT APPLICATION LOGIC                                              -->
+  <!-- ========================================================================= -->
+  <script>
+    /**
+     * DataSphere Application State & Engine
+     * ---------------------------------------------------------
+     * Manages client-side ingestion, type-inference, in-memory filtering,
+     * sorting, pagination, statistics generation, and charting.
+     */
+    const AppState = {
+      rawFile: null,
+      fileName: '',
+      fileSize: 0,
+      parseTimeMs: 0,
+      headers: [],                // Array of string column headers
+      columnTypes: {},            // Map of header -> 'number' | 'date' | 'boolean' | 'string'
+      rawData: [],                // Array of raw parsed row objects
+      filteredData: [],           // Array of currently filtered/searched row objects
+      visibleColumns: new Set(),  // Set of visible column headers
+      
+      // Pagination state
+      currentPage: 1,
+      pageSize: 25,
+
+      // Sort state
+      sortColumn: null,
+      sortDirection: 'asc',       // 'asc' | 'desc'
+
+      // Filter state
+      globalSearchQuery: '',
+      activeFilter: null,         // { column: '', operator: '', value: '' }
+
+      // Multi-column Grouping state
+      groupColumns: [],           // Ordered array of column names (e.g., ['Solution', 'System ID'])
+      collapsedGroups: new Set(), // Set of group paths currently collapsed
+    };
+
+    // =========================================================================
+    // Sample CSV Generator (Enterprise SLA & Remediation Demo)
+    // =========================================================================
+    const SAMPLE_CSV_DATA = `Solution,System ID,P1: Name,ODC Primary,Issue_ID,Title,Severity,Days to SLA Breach,Plan Remarks,Remediation Start Date,Remediation End Date,Remediation Strategy,Status
+Cloud Infrastructure,SYS-201,Alex Morgan,Jane Smith,ISS-1001,Unpatched OpenSSL vulnerability in API gateway,Critical,-4,,,Patch binary,Open
+Cloud Infrastructure,SYS-201,Alex Morgan,Jane Smith,ISS-1002,Expired SSL/TLS certificate on staging domain,High,0,Pending vendor response,,,Renew certificate,In Progress
+Cloud Infrastructure,SYS-202,Brian Lee,Jane Smith,ISS-1003,Insecure Direct Object Reference (IDOR) in user profile,Critical,5,,,Code refactoring,Open
+Identity & Security,SYS-305,Diana Prince,Robert Taylor,ISS-1004,SQL Injection vulnerability in search endpoint,Critical,12,Under active remediation,2024-03-01,2024-03-10,Parameterized queries,In Progress
+Identity & Security,SYS-305,Diana Prince,Robert Taylor,ISS-1005,Weak password policy on internal admin console,Medium,14,,,Enforce MFA & complexity,Open
+Identity & Security,SYS-310,Evan Wright,Robert Taylor,ISS-1006,Outdated Apache Log4j library dependency,High,22,,2024-03-05,,Upgrade to v2.17.1,Open
+Payment Gateway,SYS-401,Fiona Gallagher,Marcus Brody,ISS-1007,Missing Content Security Policy (CSP) header,Low,28,Scheduled for next sprint,,,Add HTTP headers,Pending
+Payment Gateway,SYS-401,Fiona Gallagher,Marcus Brody,ISS-1008,Cross-Site Scripting (XSS) in comments feed,High,45,,,Sanitize user inputs,Open
+Payment Gateway,SYS-402,George Clark,Marcus Brody,ISS-1009,Hardcoded API testing keys in client repo,High,55,,2024-03-02,2024-03-15,,In Progress
+Core Banking,SYS-501,Hannah Abbott,Sarah Jenkins,ISS-1010,Unrestricted file upload in avatar service,Critical,70,Architecture review complete,2024-03-01,2024-03-20,Validate MIME & extension,In Progress
+Core Banking,SYS-501,Hannah Abbott,Sarah Jenkins,ISS-1011,Verbose error stack traces exposed to client,Low,85,,,Custom 500 error handler,Open
+Core Banking,SYS-505,Ian Malcolm,Sarah Jenkins,ISS-1012,Cleartext transmission of metrics in internal VPN,Medium,-1,,2024-02-28,,Enable TLS 1.3,Overdue`;
+
+    // =========================================================================
+    // DOM Element References
+    // =========================================================================
+    const elements = {
+      dropzone: document.getElementById('dropzone'),
+      dropzoneSection: document.getElementById('dropzoneSection'),
+      workspaceSection: document.getElementById('workspaceSection'),
+      csvFileInput: document.getElementById('csvFileInput'),
+      browseFileBtn: document.getElementById('browseFileBtn'),
+      loadSampleHeroBtn: document.getElementById('loadSampleHeroBtn'),
+      navSampleBtn: document.getElementById('navSampleBtn'),
+      clearDataBtn: document.getElementById('clearDataBtn'),
+      activeFileChip: document.getElementById('activeFileChip'),
+      activeFileName: document.getElementById('activeFileName'),
+      themeToggleBtn: document.getElementById('themeToggleBtn'),
+      themeIcon: document.getElementById('themeIcon'),
+      toastContainer: document.getElementById('toastContainer'),
+      parsingLoader: document.getElementById('parsingLoader'),
+      parseProgressBar: document.getElementById('parseProgressBar'),
+      parsingStatusText: document.getElementById('parsingStatusText'),
+
+      // KPIs
+      kpiTotalRows: document.getElementById('kpiTotalRows'),
+      kpiFilteredRowsSub: document.getElementById('kpiFilteredRowsSub'),
+      kpiTotalCols: document.getElementById('kpiTotalCols'),
+      kpiColTypesSub: document.getElementById('kpiColTypesSub'),
+      kpiFileSize: document.getElementById('kpiFileSize'),
+      kpiDelimiterSub: document.getElementById('kpiDelimiterSub'),
+      kpiParseTime: document.getElementById('kpiParseTime'),
+
+      // Table Elements
+      dataTable: document.getElementById('dataTable'),
+      tableHeaderRow: document.getElementById('tableHeaderRow'),
+      tableBody: document.getElementById('tableBody'),
+      noMatchingRowsMsg: document.getElementById('noMatchingRowsMsg'),
+      globalSearchInput: document.getElementById('globalSearchInput'),
+      clearSearchBtn: document.getElementById('clearSearchBtn'),
+
+      // Multi-Column Grouping
+      groupingPopoverBtn: document.getElementById('groupingPopoverBtn'),
+      groupingPopover: document.getElementById('groupingPopover'),
+      groupedColCount: document.getElementById('groupedColCount'),
+      groupActiveBadge: document.getElementById('groupActiveBadge'),
+      activeGroupChipsContainer: document.getElementById('activeGroupChipsContainer'),
+      noGroupsPlaceholder: document.getElementById('noGroupsPlaceholder'),
+      clearAllGroupingBtn: document.getElementById('clearAllGroupingBtn'),
+      presetHierarchyBtn: document.getElementById('presetHierarchyBtn'),
+      groupingCheckboxList: document.getElementById('groupingCheckboxList'),
+
+      // Pagination
+      pageSizeSelect: document.getElementById('pageSizeSelect'),
+      pageRangeStart: document.getElementById('pageRangeStart'),
+      pageRangeEnd: document.getElementById('pageRangeEnd'),
+      pageRangeTotal: document.getElementById('pageRangeTotal'),
+      currentPageNum: document.getElementById('currentPageNum'),
+      totalPageNum: document.getElementById('totalPageNum'),
+      btnFirstPage: document.getElementById('btnFirstPage'),
+      btnPrevPage: document.getElementById('btnPrevPage'),
+      btnNextPage: document.getElementById('btnNextPage'),
+      btnLastPage: document.getElementById('btnLastPage'),
+
+      // Column Visibility
+      columnVisibilityBtn: document.getElementById('columnVisibilityBtn'),
+      columnVisibilityPopover: document.getElementById('columnVisibilityPopover'),
+      columnCheckboxList: document.getElementById('columnCheckboxList'),
+      excelRangeInput: document.getElementById('excelRangeInput'),
+      applyExcelRangeBtn: document.getElementById('applyExcelRangeBtn'),
+      visibleColCount: document.getElementById('visibleColCount'),
+      showAllColsBtn: document.getElementById('showAllColsBtn'),
+      resetColsBtn: document.getElementById('resetColsBtn'),
+
+      // Filter panel
+      toggleFilterPanelBtn: document.getElementById('toggleFilterPanelBtn'),
+      filterPanel: document.getElementById('filterPanel'),
+      filterColumnSelect: document.getElementById('filterColumnSelect'),
+      filterOperatorSelect: document.getElementById('filterOperatorSelect'),
+      filterValueInput: document.getElementById('filterValueInput'),
+      applyFilterRuleBtn: document.getElementById('applyFilterRuleBtn'),
+      clearFilterRuleBtn: document.getElementById('clearFilterRuleBtn'),
+      activeFilterBadge: document.getElementById('activeFilterBadge'),
+      removeDuplicatesBtn: document.getElementById('removeDuplicatesBtn'),
+      resetAllFiltersBtn: document.getElementById('resetAllFiltersBtn'),
+
+      // Export
+      exportDropdownBtn: document.getElementById('exportDropdownBtn'),
+      exportMenu: document.getElementById('exportMenu'),
+      exportCsvBtn: document.getElementById('exportCsvBtn'),
+      exportJsonBtn: document.getElementById('exportJsonBtn'),
+
+    };
+
+    // =========================================================================
+    // Toast Notification System
+    // =========================================================================
+    function showToast(message, type = 'info') {
+      const toast = document.createElement('div');
+      const icons = {
+        success: 'fa-circle-check text-emerald-400',
+        error: 'fa-circle-exclamation text-rose-400',
+        info: 'fa-circle-info text-brand-400'
+      };
+      
+      toast.className = `pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-xl bg-slate-900/95 dark:bg-slate-800/95 text-white text-xs shadow-xl border border-slate-700/60 transform translate-y-2 opacity-0 transition-all duration-300`;
+      toast.innerHTML = `
+        <i class="fa-solid ${icons[type] || icons.info}"></i>
+        <span class="flex-1 font-medium">${message}</span>
+      `;
+
+      elements.toastContainer.appendChild(toast);
+
+      // Trigger enter animation
+      requestAnimationFrame(() => {
+        toast.classList.remove('translate-y-2', 'opacity-0');
+      });
+
+      // Remove after 4s
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    }
+
+    // =========================================================================
+    // Theme Management (Dark / Light)
+    // =========================================================================
+    function initTheme() {
+      const savedTheme = localStorage.getItem('theme');
+      const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      
+      if (savedTheme === 'dark' || (!savedTheme && systemPrefersDark)) {
+        document.documentElement.classList.add('dark');
+        elements.themeIcon.className = 'fa-solid fa-sun text-amber-400';
+      } else {
+        document.documentElement.classList.remove('dark');
+        elements.themeIcon.className = 'fa-solid fa-moon';
+      }
+    }
+
+    function toggleTheme() {
+      const isDark = document.documentElement.classList.toggle('dark');
+      localStorage.setItem('theme', isDark ? 'dark' : 'light');
+      elements.themeIcon.className = isDark ? 'fa-solid fa-sun text-amber-400' : 'fa-solid fa-moon';
+    }
+
+    // =========================================================================
+    // Type Inference Engine
+    // Automatically detects number, date, boolean, or string
+    // =========================================================================
+    function inferColumnTypes(data, headers) {
+      const types = {};
+      const sampleSize = Math.min(data.length, 200);
+
+      headers.forEach(header => {
+        let numericCount = 0;
+        let dateCount = 0;
+        let booleanCount = 0;
+        let totalNonEmpty = 0;
+
+        for (let i = 0; i < sampleSize; i++) {
+          const val = data[i][header];
+          if (val === null || val === undefined || val === '') continue;
+          totalNonEmpty++;
+
+          const strVal = String(val).trim();
+          
+          // Check boolean
+          if (['true', 'false', 'yes', 'no', '0', '1'].includes(strVal.toLowerCase())) {
+            booleanCount++;
+          }
+
+          // Check number
+          const num = Number(strVal);
+          if (!isNaN(num) && strVal !== '') {
+            numericCount++;
+          }
+
+          // Check Date format (YYYY-MM-DD or standard parseable ISO string)
+          if (isNaN(num) && !isNaN(Date.parse(strVal)) && strVal.length >= 8 && (strVal.includes('-') || strVal.includes('/'))) {
+            dateCount++;
+          }
+        }
+
+        if (totalNonEmpty === 0) {
+          types[header] = 'string';
+        } else if (numericCount / totalNonEmpty >= 0.8) {
+          types[header] = 'number';
+        } else if (dateCount / totalNonEmpty >= 0.8) {
+          types[header] = 'date';
+        } else if (booleanCount / totalNonEmpty >= 0.8) {
+          types[header] = 'boolean';
+        } else {
+          types[header] = 'string';
+        }
+      });
+
+      return types;
+    }
+
+    // =========================================================================
+    // CSV Parsing Pipeline (PapaParse)
+    // =========================================================================
+    function parseCSVInput(source, fileName, fileSize = 0) {
+      const startTime = performance.now();
+      
+      // Show loader
+      elements.dropzoneSection.classList.add('hidden');
+      elements.parsingLoader.classList.remove('hidden');
+      elements.parsingStatusText.textContent = `Reading & parsing ${fileName}...`;
+      elements.parseProgressBar.style.width = '40%';
+
+      Papa.parse(source, {
+        header: true,
+        dynamicTyping: true,
+        skipEmptyLines: 'greedy',
+        encoding: 'UTF-8',
+        transformHeader: (header) => header.trim().replace(/^["']|["']$/g, ''),
+        complete: function(results) {
+          elements.parseProgressBar.style.width = '90%';
+
+          if (!results.data || results.data.length === 0 || !results.meta.fields || results.meta.fields.length === 0) {
+            elements.parsingLoader.classList.add('hidden');
+            elements.dropzoneSection.classList.remove('hidden');
+            showToast('The CSV file appears to be empty or missing column headers.', 'error');
+            return;
+          }
+
+          const parseEndTime = performance.now();
+          const duration = Math.round(parseEndTime - startTime);
+
+          // Update State
+          AppState.fileName = fileName;
+          AppState.fileSize = fileSize || (new Blob([typeof source === 'string' ? source : '']).size);
+          AppState.parseTimeMs = duration;
+          AppState.headers = results.meta.fields.filter(h => h && h.trim().length > 0);
+          AppState.rawData = results.data;
+          AppState.filteredData = [...results.data];
+          AppState.visibleColumns = new Set(AppState.headers);
+          AppState.columnTypes = inferColumnTypes(AppState.rawData, AppState.headers);
+          AppState.currentPage = 1;
+          AppState.sortColumn = null;
+          AppState.sortDirection = 'asc';
+          AppState.globalSearchQuery = '';
+          AppState.activeFilter = null;
+
+          // Finish loader UI
+          setTimeout(() => {
+            elements.parsingLoader.classList.add('hidden');
+            elements.workspaceSection.classList.remove('hidden');
+            elements.activeFileChip.classList.remove('hidden');
+            elements.activeFileChip.classList.add('flex');
+            elements.activeFileName.textContent = AppState.fileName;
+
+            // Initialize all views
+            updateKpis(results.meta.delimiter);
+            populateColumnVisibilityDropdown();
+            populateFilterOptions();
+            populateGroupingDropdown();
+            renderTable();
+
+            showToast(`Successfully parsed ${AppState.rawData.length.toLocaleString()} rows in ${duration}ms`, 'success');
+          }, 150);
+        },
+        error: function(err) {
+          elements.parsingLoader.classList.add('hidden');
+          elements.dropzoneSection.classList.remove('hidden');
+          showToast(`CSV Parsing Error: ${err.message}`, 'error');
+        }
+      });
+    }
+
+    // =========================================================================
+    // Formatters & Helpers
+    // =========================================================================
+    function formatBytes(bytes) {
+      if (!bytes || bytes === 0) return '0 B';
+      const k = 1024;
+      const sizes = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    function formatCellValue(val, type) {
+      if (val === null || val === undefined || val === '') {
+        return '<span class="text-slate-300 dark:text-slate-600 italic">null</span>';
+      }
+      if (type === 'number') {
+        const num = Number(val);
+        return isNaN(num) ? String(val) : num.toLocaleString();
+      }
+      if (type === 'boolean') {
+        const isTrue = String(val).toLowerCase() === 'true' || val === true || val === 1;
+        return isTrue
+          ? '<span class="px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-[10px]">TRUE</span>'
+          : '<span class="px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 text-[10px]">FALSE</span>';
+      }
+      return String(val);
+    }
+
+    function getTypeBadge(type) {
+      const badges = {
+        number: '<span class="text-[9px] px-1 py-0.5 rounded bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400 font-mono font-medium">123</span>',
+        date: '<span class="text-[9px] px-1 py-0.5 rounded bg-purple-100 dark:bg-purple-950 text-purple-600 dark:text-purple-400 font-mono font-medium">DATE</span>',
+        boolean: '<span class="text-[9px] px-1 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 font-mono font-medium">BOOL</span>',
+        string: '<span class="text-[9px] px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 font-mono font-medium">TXT</span>'
+      };
+      return badges[type] || badges.string;
+    }
+
+    // =========================================================================
+    // Summary Cards (KPIs)
+    // =========================================================================
+    function updateKpis(delimiter = ',') {
+      elements.kpiTotalRows.textContent = AppState.rawData.length.toLocaleString();
+      elements.kpiTotalCols.textContent = AppState.headers.length;
+      elements.kpiFileSize.textContent = formatBytes(AppState.fileSize);
+      elements.kpiParseTime.textContent = `${AppState.parseTimeMs} ms`;
+      elements.kpiDelimiterSub.textContent = `Delimiter: ${delimiter === '\t' ? 'Tab' : (delimiter === ';' ? 'Semicolon' : 'Comma')}`;
+
+      // Numeric vs Text count
+      const numCols = Object.values(AppState.columnTypes).filter(t => t === 'number').length;
+      const otherCols = AppState.headers.length - numCols;
+      elements.kpiColTypesSub.textContent = `${numCols} numeric • ${otherCols} categorical`;
+
+      // Update filtered sub-status
+      if (AppState.filteredData.length !== AppState.rawData.length) {
+        elements.kpiFilteredRowsSub.innerHTML = `<span class="text-amber-500 font-semibold">${AppState.filteredData.length.toLocaleString()}</span> filtered`;
+      } else {
+        elements.kpiFilteredRowsSub.textContent = 'All rows active';
+      }
+    }
+
+    // =========================================================================
+    // Filtering, Search & Sorting Pipeline
+    // =========================================================================
+    function applyFilteringPipeline() {
+      let data = [...AppState.rawData];
+
+      // 1. Global Search across visible columns
+      if (AppState.globalSearchQuery.trim() !== '') {
+        const query = AppState.globalSearchQuery.toLowerCase().trim();
+        data = data.filter(row => {
+          return AppState.headers.some(header => {
+            const val = row[header];
+            if (val === null || val === undefined) return false;
+            return String(val).toLowerCase().includes(query);
+          });
+        });
+      }
+
+      // 2. Structured Column Filter Rule
+      if (AppState.activeFilter && AppState.activeFilter.column) {
+        const { column, operator, value } = AppState.activeFilter;
+        const colType = AppState.columnTypes[column];
+        const targetVal = value.trim().toLowerCase();
+
+        data = data.filter(row => {
+          const rawCell = row[column];
+          
+          if (operator === 'is_empty') {
+            return rawCell === null || rawCell === undefined || String(rawCell).trim() === '';
+          }
+          if (operator === 'is_not_empty') {
+            return rawCell !== null && rawCell !== undefined && String(rawCell).trim() !== '';
+          }
+
+          if (rawCell === null || rawCell === undefined) return false;
+
+          const cellStr = String(rawCell).toLowerCase();
+
+          if (colType === 'number') {
+            const numCell = Number(rawCell);
+            const numTarget = Number(value);
+            if (isNaN(numCell) || isNaN(numTarget)) return false;
+
+            switch (operator) {
+              case 'equals': return numCell === numTarget;
+              case 'not_equals': return numCell !== numTarget;
+              case 'gt': return numCell > numTarget;
+              case 'gte': return numCell >= numTarget;
+              case 'lt': return numCell < numTarget;
+              case 'lte': return numCell <= numTarget;
+              case 'contains': return cellStr.includes(targetVal);
+              default: return true;
+            }
+          }
+
+          // String & generic comparison
+          switch (operator) {
+            case 'contains': return cellStr.includes(targetVal);
+            case 'not_contains': return !cellStr.includes(targetVal);
+            case 'equals': return cellStr === targetVal;
+            case 'not_equals': return cellStr !== targetVal;
+            case 'starts_with': return cellStr.startsWith(targetVal);
+            case 'ends_with': return cellStr.endsWith(targetVal);
+            case 'gt': return cellStr > targetVal;
+            case 'lt': return cellStr < targetVal;
+            default: return true;
+          }
+        });
+      }
+
+      // 3. Sorting
+      if (AppState.sortColumn) {
+        const col = AppState.sortColumn;
+        const dir = AppState.sortDirection === 'asc' ? 1 : -1;
+        const colType = AppState.columnTypes[col];
+
+        data.sort((a, b) => {
+          let valA = a[col];
+          let valB = b[col];
+
+          if (valA === valB) return 0;
+          if (valA === null || valA === undefined || valA === '') return 1;
+          if (valB === null || valB === undefined || valB === '') return -1;
+
+          if (colType === 'number') {
+            return (Number(valA) - Number(valB)) * dir;
+          }
+          if (colType === 'date') {
+            return (new Date(valA) - new Date(valB)) * dir;
+          }
+          return String(valA).localeCompare(String(valB)) * dir;
+        });
+      }
+
+      AppState.filteredData = data;
+      AppState.currentPage = 1; // Reset to page 1 on filter/sort change
+
+      updateKpis();
+      renderTable();
+    }
+
+    // =========================================================================
+    // Table Rendering (Supports Multi-Column Grouping Hierarchy & Flat View)
+    // =========================================================================
+    function renderTable() {
+      const visibleHeaders = AppState.headers.filter(h => AppState.visibleColumns.has(h));
+      const activeGroupCols = AppState.groupColumns.filter(col => AppState.headers.includes(col));
+      const isGrouped = activeGroupCols.length > 0;
+
+      // Update Grouping UI Counters & Badges
+      if (elements.groupedColCount) {
+        elements.groupedColCount.textContent = activeGroupCols.length;
+        elements.groupActiveBadge.classList.toggle('hidden', activeGroupCols.length === 0);
+      }
+      
+      // 1. Build Header
+      elements.tableHeaderRow.innerHTML = '';
+      
+      // Index column
+      const thIdx = document.createElement('th');
+      thIdx.className = 'p-3 text-slate-400 font-semibold w-12 text-center select-none';
+      thIdx.textContent = '#';
+      elements.tableHeaderRow.appendChild(thIdx);
+
+      visibleHeaders.forEach(header => {
+        const th = document.createElement('th');
+        th.className = 'p-3 text-slate-700 dark:text-slate-200 font-semibold cursor-pointer hover:bg-slate-200/70 dark:hover:bg-slate-700/60 transition-colors select-none';
+        
+        let sortIcon = '<i class="fa-solid fa-sort text-slate-300 dark:text-slate-600 text-[10px] ml-1"></i>';
+        if (AppState.sortColumn === header) {
+          sortIcon = AppState.sortDirection === 'asc'
+            ? '<i class="fa-solid fa-arrow-up-short-wide text-brand-600 dark:text-brand-400 text-xs ml-1"></i>'
+            : '<i class="fa-solid fa-arrow-down-wide-short text-brand-600 dark:text-brand-400 text-xs ml-1"></i>';
+        }
+
+        th.innerHTML = `
+          <div class="flex items-center justify-between gap-1.5 whitespace-nowrap">
+            <span class="truncate max-w-[160px]">${header}</span>
+            <div class="flex items-center gap-1">
+              ${getTypeBadge(AppState.columnTypes[header])}
+              ${sortIcon}
+            </div>
+          </div>
+        `;
+
+        th.addEventListener('click', () => {
+          if (AppState.sortColumn === header) {
+            AppState.sortDirection = AppState.sortDirection === 'asc' ? 'desc' : 'asc';
+          } else {
+            AppState.sortColumn = header;
+            AppState.sortDirection = 'asc';
+          }
+          applyFilteringPipeline();
+        });
+
+        elements.tableHeaderRow.appendChild(th);
+      });
+
+      // 2. Build Rows (Grouped or Flat)
+      elements.tableBody.innerHTML = '';
+      const totalRows = AppState.filteredData.length;
+
+      if (totalRows === 0) {
+        elements.noMatchingRowsMsg.classList.remove('hidden');
+      } else {
+        elements.noMatchingRowsMsg.classList.add('hidden');
+      }
+
+      if (isGrouped) {
+        // Multi-level grouping render
+        renderMultiLevelGroupedRows(visibleHeaders, activeGroupCols);
+
+        // Grouped view footer status
+        elements.pageRangeStart.textContent = totalRows === 0 ? '0' : '1';
+        elements.pageRangeEnd.textContent = totalRows.toLocaleString();
+        elements.pageRangeTotal.textContent = totalRows.toLocaleString();
+        elements.currentPageNum.textContent = '1';
+        elements.totalPageNum.textContent = '1';
+
+        elements.btnFirstPage.disabled = true;
+        elements.btnPrevPage.disabled = true;
+        elements.btnNextPage.disabled = true;
+        elements.btnLastPage.disabled = true;
+      } else {
+        // Standard Flat paginated view
+        const totalPages = Math.ceil(totalRows / AppState.pageSize) || 1;
+        if (AppState.currentPage > totalPages) AppState.currentPage = totalPages;
+
+        const startIndex = (AppState.currentPage - 1) * AppState.pageSize;
+        const endIndex = Math.min(startIndex + AppState.pageSize, totalRows);
+        const pageRows = AppState.filteredData.slice(startIndex, endIndex);
+
+        pageRows.forEach((row, idx) => {
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors';
+
+          // Index cell
+          const tdIdx = document.createElement('td');
+          tdIdx.className = 'p-3 text-slate-400 text-center font-mono text-[11px]';
+          tdIdx.textContent = startIndex + idx + 1;
+          tr.appendChild(tdIdx);
+
+          visibleHeaders.forEach(header => {
+            const td = document.createElement('td');
+            td.className = 'p-3 text-slate-700 dark:text-slate-300 max-w-[240px] truncate';
+            td.innerHTML = formatCellValue(row[header], AppState.columnTypes[header]);
+            tr.appendChild(td);
+          });
+
+          elements.tableBody.appendChild(tr);
+        });
+
+        // Update Pagination Controls
+        elements.pageRangeStart.textContent = totalRows === 0 ? '0' : (startIndex + 1).toLocaleString();
+        elements.pageRangeEnd.textContent = endIndex.toLocaleString();
+        elements.pageRangeTotal.textContent = totalRows.toLocaleString();
+        elements.currentPageNum.textContent = AppState.currentPage;
+        elements.totalPageNum.textContent = totalPages;
+
+        elements.btnFirstPage.disabled = AppState.currentPage === 1;
+        elements.btnPrevPage.disabled = AppState.currentPage === 1;
+        elements.btnNextPage.disabled = AppState.currentPage === totalPages || totalPages === 0;
+        elements.btnLastPage.disabled = AppState.currentPage === totalPages || totalPages === 0;
+      }
+    }
+
+    // =========================================================================
+    // Multi-Level Grouping Hierarchy Renderer
+    // =========================================================================
+    function renderMultiLevelGroupedRows(visibleHeaders, groupCols) {
+      const colSpanTotal = visibleHeaders.length + 1;
+      const rootTree = {};
+      let rowIndexCounter = 0;
+
+      // Group styling palette per depth level
+      const depthStyles = [
+        { bg: 'bg-indigo-50/90 dark:bg-indigo-950/70', border: 'border-indigo-500', icon: 'fa-cubes text-indigo-500', text: 'text-indigo-950 dark:text-indigo-100' },
+        { bg: 'bg-sky-50/80 dark:bg-sky-950/60', border: 'border-sky-400', icon: 'fa-server text-sky-500', text: 'text-sky-950 dark:text-sky-100' },
+        { bg: 'bg-emerald-50/80 dark:bg-emerald-950/60', border: 'border-emerald-400', icon: 'fa-user-tie text-emerald-500', text: 'text-emerald-950 dark:text-emerald-100' },
+        { bg: 'bg-amber-50/80 dark:bg-amber-950/60', border: 'border-amber-400', icon: 'fa-id-badge text-amber-500', text: 'text-amber-950 dark:text-amber-100' },
+        { bg: 'bg-purple-50/80 dark:bg-purple-950/60', border: 'border-purple-400', icon: 'fa-tag text-purple-500', text: 'text-purple-950 dark:text-purple-100' },
+      ];
+
+      // Build hierarchical tree
+      AppState.filteredData.forEach(row => {
+        let currentLevel = rootTree;
+        groupCols.forEach((colName, idx) => {
+          const raw = row[colName];
+          const val = raw !== null && raw !== undefined && String(raw).trim() !== ''
+            ? String(raw).trim()
+            : '(Blank / Unassigned)';
+
+          if (!currentLevel[val]) {
+            currentLevel[val] = (idx === groupCols.length - 1) ? [] : {};
+          }
+          currentLevel = currentLevel[val];
+        });
+        currentLevel.push(row);
+      });
+
+      // Recursive rendering of nodes
+      function traverseAndRender(treeNode, depth, parentKeyPath, ancestorCollapsed = false) {
+        if (depth === groupCols.length) {
+          if (Array.isArray(treeNode)) {
+            treeNode.forEach(row => {
+              rowIndexCounter++;
+              const tr = document.createElement('tr');
+              tr.className = `hover:bg-indigo-50/30 dark:hover:bg-indigo-950/20 transition-colors ${ancestorCollapsed ? 'hidden' : ''}`;
+              
+              const tdIdx = document.createElement('td');
+              tdIdx.className = 'p-3 text-slate-400 text-center font-mono text-[11px]';
+              tdIdx.textContent = rowIndexCounter;
+              tr.appendChild(tdIdx);
+
+              visibleHeaders.forEach(header => {
+                const td = document.createElement('td');
+                td.className = 'p-3 text-slate-700 dark:text-slate-300 max-w-[240px] truncate';
+                td.innerHTML = formatCellValue(row[header], AppState.columnTypes[header]);
+                tr.appendChild(td);
+              });
+
+              elements.tableBody.appendChild(tr);
+            });
+          }
+          return;
+        }
+
+        const colName = groupCols[depth];
+        const keys = Object.keys(treeNode).sort((a, b) => a.localeCompare(b));
+        const style = depthStyles[depth % depthStyles.length];
+
+        keys.forEach(groupVal => {
+          const groupPath = `${parentKeyPath}/${colName}:${groupVal}`;
+          const isCollapsed = AppState.collapsedGroups.has(groupPath);
+          const childNode = treeNode[groupVal];
+          
+          function countLeaves(node, curDepth) {
+            if (curDepth === groupCols.length) return Array.isArray(node) ? node.length : 0;
+            return Object.values(node).reduce((sum, n) => sum + countLeaves(n, curDepth + 1), 0);
+          }
+          const totalRecords = countLeaves(childNode, depth + 1);
+
+          const trHeader = document.createElement('tr');
+          trHeader.className = `${style.bg} border-l-4 ${style.border} cursor-pointer hover:opacity-90 transition-opacity select-none ${ancestorCollapsed ? 'hidden' : ''}`;
+          
+          const paddingLeftRem = 0.75 + (depth * 1.25);
+          trHeader.innerHTML = `
+            <td colspan="${colSpanTotal}" class="py-2.5 px-3 text-xs" style="padding-left: ${paddingLeftRem}rem">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <i class="fa-solid ${isCollapsed ? 'fa-chevron-right text-slate-400' : 'fa-chevron-down text-brand-600'} text-[11px] w-3"></i>
+                  <i class="fa-solid ${style.icon}"></i>
+                  <span class="text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-medium">${colName}:</span>
+                  <span class="font-bold ${style.text}">${groupVal}</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="px-2 py-0.5 rounded-full bg-white/80 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-700 text-[10px] font-mono font-semibold">
+                    ${totalRecords} ${totalRecords === 1 ? 'record' : 'records'}
+                  </span>
+                </div>
+              </div>
+            </td>
+          `;
+
+          trHeader.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (AppState.collapsedGroups.has(groupPath)) {
+              AppState.collapsedGroups.delete(groupPath);
+            } else {
+              AppState.collapsedGroups.add(groupPath);
+            }
+            renderTable();
+          });
+
+          elements.tableBody.appendChild(trHeader);
+          traverseAndRender(childNode, depth + 1, groupPath, ancestorCollapsed || isCollapsed);
+        });
+      }
+
+      traverseAndRender(rootTree, 0, 'root', false);
+    }
+
+    // =========================================================================
+    // Column Visibility Popover Builder
+    // =========================================================================
+    function populateColumnVisibilityDropdown() {
+      elements.columnCheckboxList.innerHTML = '';
+      elements.visibleColCount.textContent = AppState.visibleColumns.size;
+
+      AppState.headers.forEach(header => {
+        const label = document.createElement('label');
+        label.className = 'flex items-center gap-2 cursor-pointer p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200';
+        
+        const isChecked = AppState.visibleColumns.has(header);
+        label.innerHTML = `
+          <input type="checkbox" value="${header}" ${isChecked ? 'checked' : ''} class="rounded text-brand-600 focus:ring-brand-500 border-slate-300 dark:border-slate-700 col-toggle-cb" />
+          <span class="truncate">${header}</span>
+        `;
+
+        const cb = label.querySelector('input');
+        cb.addEventListener('change', (e) => {
+          if (e.target.checked) {
+            AppState.visibleColumns.add(header);
+          } else {
+            if (AppState.visibleColumns.size <= 1) {
+              e.target.checked = true;
+              showToast('At least one column must remain visible.', 'info');
+              return;
+            }
+            AppState.visibleColumns.delete(header);
+          }
+          elements.visibleColCount.textContent = AppState.visibleColumns.size;
+          renderTable();
+        });
+
+        elements.columnCheckboxList.appendChild(label);
+      });
+    }
+
+    // =========================================================================
+    // Filter Panel Population
+    // =========================================================================
+    function populateFilterOptions() {
+      elements.filterColumnSelect.innerHTML = '';
+      AppState.headers.forEach(header => {
+        const opt = document.createElement('option');
+        opt.value = header;
+        opt.textContent = `${header} (${AppState.columnTypes[header]})`;
+        elements.filterColumnSelect.appendChild(opt);
+      });
+    }
+
+    // =========================================================================
+    // Multi-Column Grouping Popover UI Builder
+    // =========================================================================
+    function populateGroupingDropdown() {
+      elements.groupingCheckboxList.innerHTML = '';
+      updateActiveGroupChips();
+
+      AppState.headers.forEach(header => {
+        const label = document.createElement('label');
+        label.className = 'flex items-center justify-between p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 cursor-pointer';
+
+        const isGrouped = AppState.groupColumns.includes(header);
+        const groupIndex = AppState.groupColumns.indexOf(header);
+
+        label.innerHTML = `
+          <div class="flex items-center gap-2 truncate">
+            <input type="checkbox" value="${header}" ${isGrouped ? 'checked' : ''} class="rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 dark:border-slate-700 group-col-cb" />
+            <span class="truncate">${header}</span>
+          </div>
+          ${isGrouped ? `<span class="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300">Level ${groupIndex + 1}</span>` : ''}
+        `;
+
+        const cb = label.querySelector('input');
+        cb.addEventListener('change', (e) => {
+          if (e.target.checked) {
+            if (!AppState.groupColumns.includes(header)) {
+              AppState.groupColumns.push(header);
+            }
+          } else {
+            AppState.groupColumns = AppState.groupColumns.filter(c => c !== header);
+          }
+          AppState.collapsedGroups.clear();
+          populateGroupingDropdown();
+          renderTable();
+        });
+
+        elements.groupingCheckboxList.appendChild(label);
+      });
+    }
+
+    function updateActiveGroupChips() {
+      elements.activeGroupChipsContainer.innerHTML = '';
+
+      if (AppState.groupColumns.length === 0) {
+        elements.activeGroupChipsContainer.appendChild(elements.noGroupsPlaceholder);
+        return;
+      }
+
+      AppState.groupColumns.forEach((col, idx) => {
+        const chip = document.createElement('div');
+        chip.className = 'inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-white dark:bg-dark-card border border-indigo-200 dark:border-indigo-800/80 text-xs font-semibold text-slate-800 dark:text-slate-100 shadow-sm';
+        
+        chip.innerHTML = `
+          <span class="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-bold">${idx + 1}</span>
+          <span class="truncate max-w-[100px]">${col}</span>
+          <button type="button" class="text-slate-400 hover:text-rose-500 ml-0.5 text-[11px]" title="Remove from grouping">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        `;
+
+        chip.querySelector('button').addEventListener('click', (e) => {
+          e.stopPropagation();
+          AppState.groupColumns = AppState.groupColumns.filter(c => c !== col);
+          AppState.collapsedGroups.clear();
+          populateGroupingDropdown();
+          renderTable();
+        });
+
+        elements.activeGroupChipsContainer.appendChild(chip);
+
+        if (idx < AppState.groupColumns.length - 1) {
+          const arrow = document.createElement('i');
+          arrow.className = 'fa-solid fa-chevron-right text-[10px] text-slate-400 mx-0.5';
+          elements.activeGroupChipsContainer.appendChild(arrow);
+        }
+      });
+    }
+
+    // =========================================================================
+    // Data Exporting (CSV & JSON)
+    // =========================================================================
+    function downloadBlob(content, fileName, mimeType) {
+      const blob = new Blob([content], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+
+    function exportToCsv() {
+      if (AppState.filteredData.length === 0) {
+        showToast('No records available to export.', 'info');
+        return;
+      }
+      
+      // Filter rows to only visible columns
+      const visibleHeaders = AppState.headers.filter(h => AppState.visibleColumns.has(h));
+      const projected = AppState.filteredData.map(row => {
+        const item = {};
+        visibleHeaders.forEach(h => item[h] = row[h]);
+        return item;
+      });
+
+      const csvString = Papa.unparse(projected);
+      const exportName = `${AppState.fileName.replace('.csv', '')}_processed.csv`;
+      downloadBlob(csvString, exportName, 'text/csv;charset=utf-8;');
+      showToast(`Exported ${projected.length.toLocaleString()} rows to ${exportName}`, 'success');
+    }
+
+    function exportToJson() {
+      if (AppState.filteredData.length === 0) {
+        showToast('No records available to export.', 'info');
+        return;
+      }
+
+      const visibleHeaders = AppState.headers.filter(h => AppState.visibleColumns.has(h));
+      const projected = AppState.filteredData.map(row => {
+        const item = {};
+        visibleHeaders.forEach(h => item[h] = row[h]);
+        return item;
+      });
+
+      const jsonString = JSON.stringify(projected, null, 2);
+      const exportName = `${AppState.fileName.replace('.csv', '')}_processed.json`;
+      downloadBlob(jsonString, exportName, 'application/json;charset=utf-8;');
+      showToast(`Exported ${projected.length.toLocaleString()} records to ${exportName}`, 'success');
+    }
+
+    // =========================================================================
+    // Event Listeners & Interactions
+    // =========================================================================
+    function setupEventListeners() {
+      
+      // Theme Toggle
+      elements.themeToggleBtn.addEventListener('click', toggleTheme);
+
+      // Drag and drop dropzone events
+      const dropzone = elements.dropzone;
+      ['dragenter', 'dragover'].forEach(eventName => {
+        dropzone.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dropzone.classList.add('dragover');
+        });
+      });
+
+      ['dragleave', 'drop'].forEach(eventName => {
+        dropzone.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dropzone.classList.remove('dragover');
+        });
+      });
+
+      dropzone.addEventListener('drop', (e) => {
+        const files = e.dataTransfer.files;
+        if (files && files.length > 0) {
+          handleFileInput(files[0]);
+        }
+      });
+
+      // Traditional file browse button
+      elements.browseFileBtn.addEventListener('click', () => {
+        elements.csvFileInput.click();
+      });
+
+      elements.csvFileInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files.length > 0) {
+          handleFileInput(e.target.files[0]);
+        }
+      });
+
+      function handleFileInput(file) {
+        if (!file.name.toLowerCase().endsWith('.csv') && file.type !== 'text/csv' && file.type !== 'text/plain') {
+          showToast('Please select a valid CSV file (.csv)', 'error');
+          return;
+        }
+        parseCSVInput(file, file.name, file.size);
+      }
+
+      // Sample Data Loaders
+      elements.loadSampleHeroBtn.addEventListener('click', () => {
+        parseCSVInput(SAMPLE_CSV_DATA, 'ecommerce_sales_sample.csv', new Blob([SAMPLE_CSV_DATA]).size);
+      });
+      elements.navSampleBtn.addEventListener('click', () => {
+        parseCSVInput(SAMPLE_CSV_DATA, 'ecommerce_sales_sample.csv', new Blob([SAMPLE_CSV_DATA]).size);
+      });
+
+      // Clear Dataset
+      elements.clearDataBtn.addEventListener('click', () => {
+        AppState.rawData = [];
+        AppState.filteredData = [];
+        AppState.headers = [];
+        elements.workspaceSection.classList.add('hidden');
+        elements.activeFileChip.classList.add('hidden');
+        elements.activeFileChip.classList.remove('flex');
+        elements.dropzoneSection.classList.remove('hidden');
+        elements.csvFileInput.value = '';
+        showToast('Dataset unloaded', 'info');
+      });
+
+      // Global Search
+      let debounceTimer;
+      elements.globalSearchInput.addEventListener('input', (e) => {
+        clearTimeout(debounceTimer);
+        const query = e.target.value;
+        elements.clearSearchBtn.classList.toggle('hidden', query.length === 0);
+        
+        debounceTimer = setTimeout(() => {
+          AppState.globalSearchQuery = query;
+          applyFilteringPipeline();
+        }, 150);
+      });
+
+      elements.clearSearchBtn.addEventListener('click', () => {
+        elements.globalSearchInput.value = '';
+        elements.clearSearchBtn.classList.add('hidden');
+        AppState.globalSearchQuery = '';
+        applyFilteringPipeline();
+      });
+
+      // Column Visibility Popover
+      elements.columnVisibilityBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        elements.columnVisibilityPopover.classList.toggle('hidden');
+      });
+
+      // Multi-Column Grouping Popover
+      elements.groupingPopoverBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        elements.groupingPopover.classList.toggle('hidden');
+      });
+
+      elements.clearAllGroupingBtn.addEventListener('click', () => {
+        AppState.groupColumns = [];
+        AppState.collapsedGroups.clear();
+        populateGroupingDropdown();
+        renderTable();
+        showToast('All groupings cleared', 'info');
+      });
+
+      elements.presetHierarchyBtn.addEventListener('click', () => {
+        const solCol = findMatchingColumn(['Solution', 'Solutions']);
+        const sysCol = findMatchingColumn(['System ID', 'System_ID', 'SystemId', 'System']);
+        const p1Col = findMatchingColumn(['P1: Name', 'P1 Name', 'P1_Name', 'P1']);
+        const odcCol = findMatchingColumn(['ODC Primary', 'ODC_Primary', 'ODCPrimary', 'ODC']);
+
+        const hierarchy = [solCol, sysCol, p1Col, odcCol].filter(Boolean);
+        if (hierarchy.length === 0) {
+          showToast('Preset columns not present in this dataset', 'info');
+          return;
+        }
+
+        AppState.groupColumns = hierarchy;
+        AppState.collapsedGroups.clear();
+        populateGroupingDropdown();
+        renderTable();
+        showToast(`Applied preset grouping (${hierarchy.length} levels)`, 'success');
+      });
+
+      // Remove Duplicate Rows Handler
+      elements.removeDuplicatesBtn.addEventListener('click', () => {
+        if (!AppState.rawData || AppState.rawData.length === 0) {
+          showToast('No dataset loaded.', 'info');
+          return;
+        }
+
+        const initialCount = AppState.rawData.length;
+        const seen = new Set();
+        const uniqueRows = [];
+
+        AppState.rawData.forEach(row => {
+          // Serialize row content into a normalized signature string
+          const signature = AppState.headers.map(h => {
+            const val = row[h];
+            return val !== null && val !== undefined ? String(val).trim() : '';
+          }).join('|||');
+
+          if (!seen.has(signature)) {
+            seen.add(signature);
+            uniqueRows.push(row);
+          }
+        });
+
+        const removedCount = initialCount - uniqueRows.length;
+
+        if (removedCount === 0) {
+          showToast('No duplicate rows found in dataset.', 'info');
+          return;
+        }
+
+        AppState.rawData = uniqueRows;
+        applyFilteringPipeline();
+        showToast(`Removed ${removedCount.toLocaleString()} duplicate ${removedCount === 1 ? 'row' : 'rows'}. (${uniqueRows.length.toLocaleString()} remaining)`, 'success');
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!elements.columnVisibilityPopover.contains(e.target) && e.target !== elements.columnVisibilityBtn) {
+          elements.columnVisibilityPopover.classList.add('hidden');
+        }
+        if (!elements.groupingPopover.contains(e.target) && e.target !== elements.groupingPopoverBtn) {
+          elements.groupingPopover.classList.add('hidden');
+        }
+        if (!elements.exportMenu.contains(e.target) && !elements.exportDropdownBtn.contains(e.target)) {
+          elements.exportMenu.classList.add('hidden');
+        }
+      });
+
+      elements.showAllColsBtn.addEventListener('click', () => {
+        AppState.visibleColumns = new Set(AppState.headers);
+        populateColumnVisibilityDropdown();
+        renderTable();
+      });
+
+      elements.resetColsBtn.addEventListener('click', () => {
+        AppState.visibleColumns = new Set(AppState.headers);
+        populateColumnVisibilityDropdown();
+        renderTable();
+      });
+
+      // Helper function to convert Excel column letter (A, B, AA...) to 0-based index
+      function excelColToIndex(colStr) {
+        let index = 0;
+        const s = colStr.toUpperCase().trim();
+        for (let i = 0; i < s.length; i++) {
+          index = index * 26 + (s.charCodeAt(i) - 64);
+        }
+        return index - 1;
+      }
+
+      // Helper function to parse Range expression like Range("A1:G1,I1:K1,M1:P1,T1:U1,W1,Y1:AS1,AX1:BA1,BF1:BJ1")
+      function parseExcelRangeToRemove(inputStr) {
+        // Strip Range("...") wrapper if present
+        let clean = inputStr.replace(/Range\s*\(\s*["']?/i, '').replace(/["']?\s*\)/, '');
+        const segments = clean.split(',').map(s => s.trim()).filter(Boolean);
+        const indicesToRemove = new Set();
+
+        segments.forEach(seg => {
+          // Clean out numbers like A1:G1 -> A:G or W1 -> W
+          const rangeParts = seg.split(':').map(p => p.replace(/[0-9]/g, '').trim().toUpperCase());
+          if (rangeParts.length === 2 && rangeParts[0] && rangeParts[1]) {
+            const startIdx = excelColToIndex(rangeParts[0]);
+            const endIdx = excelColToIndex(rangeParts[1]);
+            const min = Math.min(startIdx, endIdx);
+            const max = Math.max(startIdx, endIdx);
+            for (let i = min; i <= max; i++) {
+              indicesToRemove.add(i);
+            }
+          } else if (rangeParts.length === 1 && rangeParts[0]) {
+            indicesToRemove.add(excelColToIndex(rangeParts[0]));
+          }
+        });
+
+        return indicesToRemove;
+      }
+
+      // Apply Excel Range column removal
+      elements.applyExcelRangeBtn.addEventListener('click', () => {
+        const inputVal = elements.excelRangeInput.value;
+        if (!inputVal.trim()) {
+          showToast('Please provide a column range expression.', 'info');
+          return;
+        }
+
+        const toRemove = parseExcelRangeToRemove(inputVal);
+        let removedCount = 0;
+
+        AppState.headers.forEach((header, idx) => {
+          if (toRemove.has(idx)) {
+            if (AppState.visibleColumns.has(header)) {
+              if (AppState.visibleColumns.size > 1) {
+                AppState.visibleColumns.delete(header);
+                removedCount++;
+              }
+            }
+          }
+        });
+
+        populateColumnVisibilityDropdown();
+        renderTable();
+        showToast(`Hidden / removed ${removedCount} columns matching specified range.`, 'success');
+      });
+
+      // Helper function to find best matching column name (case-insensitive / partial)
+      function findMatchingColumn(candidates) {
+        for (const candidate of candidates) {
+          const exact = AppState.headers.find(h => h.trim().toLowerCase() === candidate.toLowerCase());
+          if (exact) return exact;
+        }
+        for (const candidate of candidates) {
+          const partial = AppState.headers.find(h => h.toLowerCase().includes(candidate.toLowerCase()));
+          if (partial) return partial;
+        }
+        return null;
+      }
+
+      // Quick Preset Filter Handlers
+      document.querySelectorAll('.preset-filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const presetKey = btn.dataset.preset;
+          let targetCol = null;
+          let op = '';
+          let val = '';
+          let label = '';
+
+          switch (presetKey) {
+            case 'sla_lte_0':
+              targetCol = findMatchingColumn(['Days to SLA Breach', 'Days to SLA', 'SLA Breach', 'Days_to_SLA_Breach', 'SLA']);
+              op = 'lte';
+              val = '0';
+              label = 'Days to SLA Breach ≤ 0';
+              break;
+            case 'sla_lt_15':
+              targetCol = findMatchingColumn(['Days to SLA Breach', 'Days to SLA', 'SLA Breach', 'Days_to_SLA_Breach', 'SLA']);
+              op = 'lt';
+              val = '15';
+              label = 'Days to SLA Breach < 15';
+              break;
+            case 'sla_lt_30':
+              targetCol = findMatchingColumn(['Days to SLA Breach', 'Days to SLA', 'SLA Breach', 'Days_to_SLA_Breach', 'SLA']);
+              op = 'lt';
+              val = '30';
+              label = 'Days to SLA Breach < 30';
+              break;
+            case 'sla_lt_60':
+              targetCol = findMatchingColumn(['Days to SLA Breach', 'Days to SLA', 'SLA Breach', 'Days_to_SLA_Breach', 'SLA']);
+              op = 'lt';
+              val = '60';
+              label = 'Days to SLA Breach < 60';
+              break;
+            case 'plan_remarks_empty':
+              targetCol = findMatchingColumn(['Plan Remarks', 'Plan_Remarks', 'Plan Remark', 'Remarks']);
+              op = 'is_empty';
+              val = '';
+              label = 'Plan Remarks is empty';
+              break;
+            case 'start_date_empty':
+              targetCol = findMatchingColumn(['Remediation Start Date', 'Remediation_Start_Date', 'Start Date', 'Remediation Start']);
+              op = 'is_empty';
+              val = '';
+              label = 'Remediation Start Date is empty';
+              break;
+            case 'end_date_empty':
+              targetCol = findMatchingColumn(['Remediation End Date', 'Remediation_End_Date', 'End Date', 'Remediation End']);
+              op = 'is_empty';
+              val = '';
+              label = 'Remediation End Date is empty';
+              break;
+            case 'strategy_empty':
+              targetCol = findMatchingColumn(['Remediation Strategy', 'Remediation_Strategy', 'Strategy', 'Remediation Plan']);
+              op = 'is_empty';
+              val = '';
+              label = 'Remediation Strategy is empty';
+              break;
+          }
+
+          if (!targetCol) {
+            showToast(`Target column for "${label}" not found in current dataset.`, 'info');
+            return;
+          }
+
+          // Sync with UI selectors
+          elements.filterColumnSelect.value = targetCol;
+          elements.filterOperatorSelect.value = op;
+          elements.filterValueInput.value = val;
+
+          AppState.activeFilter = { column: targetCol, operator: op, value: val };
+          elements.activeFilterBadge.classList.remove('hidden');
+          applyFilteringPipeline();
+          showToast(`Applied preset: ${label} on "${targetCol}"`, 'success');
+        });
+      });
+
+      // Filter Panel Toggle
+      elements.toggleFilterPanelBtn.addEventListener('click', () => {
+        elements.filterPanel.classList.toggle('hidden');
+      });
+
+      // Apply Filter Rule
+      elements.applyFilterRuleBtn.addEventListener('click', () => {
+        const col = elements.filterColumnSelect.value;
+        const op = elements.filterOperatorSelect.value;
+        const val = elements.filterValueInput.value;
+
+        if (!op.startsWith('is_') && val.trim() === '') {
+          showToast('Please enter a filter value.', 'info');
+          return;
+        }
+
+        AppState.activeFilter = { column: col, operator: op, value: val };
+        elements.activeFilterBadge.classList.remove('hidden');
+        applyFilteringPipeline();
+        showToast(`Filter applied on ${col}`, 'success');
+      });
+
+      // Clear Filter Rule
+      elements.clearFilterRuleBtn.addEventListener('click', () => {
+        AppState.activeFilter = null;
+        elements.filterValueInput.value = '';
+        elements.activeFilterBadge.classList.add('hidden');
+        applyFilteringPipeline();
+      });
+
+      // Reset All Filters
+      elements.resetAllFiltersBtn.addEventListener('click', () => {
+        AppState.globalSearchQuery = '';
+        AppState.activeFilter = null;
+        AppState.sortColumn = null;
+        AppState.sortDirection = 'asc';
+        elements.globalSearchInput.value = '';
+        elements.clearSearchBtn.classList.add('hidden');
+        elements.filterValueInput.value = '';
+        elements.activeFilterBadge.classList.add('hidden');
+        applyFilteringPipeline();
+        showToast('All filters and sorts have been reset.', 'info');
+      });
+
+      // Pagination events
+      elements.pageSizeSelect.addEventListener('change', (e) => {
+        AppState.pageSize = parseInt(e.target.value, 10);
+        AppState.currentPage = 1;
+        renderTable();
+      });
+
+      elements.btnFirstPage.addEventListener('click', () => {
+        AppState.currentPage = 1;
+        renderTable();
+      });
+      elements.btnPrevPage.addEventListener('click', () => {
+        if (AppState.currentPage > 1) {
+          AppState.currentPage--;
+          renderTable();
+        }
+      });
+      elements.btnNextPage.addEventListener('click', () => {
+        const totalPages = Math.ceil(AppState.filteredData.length / AppState.pageSize);
+        if (AppState.currentPage < totalPages) {
+          AppState.currentPage++;
+          renderTable();
+        }
+      });
+      elements.btnLastPage.addEventListener('click', () => {
+        AppState.currentPage = Math.ceil(AppState.filteredData.length / AppState.pageSize);
+        renderTable();
+      });
+
+      // Export Dropdown
+      elements.exportDropdownBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        elements.exportMenu.classList.toggle('hidden');
+      });
+      elements.exportCsvBtn.addEventListener('click', () => {
+        elements.exportMenu.classList.add('hidden');
+        exportToCsv();
+      });
+      elements.exportJsonBtn.addEventListener('click', () => {
+        elements.exportMenu.classList.add('hidden');
+        exportToJson();
+      });
+
+    }
+
+    // =========================================================================
+    // Initialization
+    // =========================================================================
+    document.addEventListener('DOMContentLoaded', () => {
+      initTheme();
+      setupEventListeners();
+    });
+  </script>
+</body>
+</html>
