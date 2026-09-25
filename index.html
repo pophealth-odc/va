@@ -169,7 +169,7 @@
     <!-- 1. EMPTY STATE / FILE DROPZONE -->
     <!-- 1. EMPTY STATE / DIRECT LOCAL FILE ACCESS -->
     <section id="dropzoneSection" class="transition-all duration-300 flex flex-col items-center justify-center py-10 sm:py-16">
-      <div class="w-full max-w-2xl bg-white dark:bg-dark-card border border-slate-200 dark:border-slate-800 rounded-2xl p-8 sm:p-12 text-center shadow-xl shadow-slate-200/50 dark:shadow-none transition-all">
+      <div id="dropzone" class="w-full max-w-2xl bg-white dark:bg-dark-card border border-slate-200 dark:border-slate-800 rounded-2xl p-8 sm:p-12 text-center shadow-xl shadow-slate-200/50 dark:shadow-none transition-all">
         
         <div class="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-5 rounded-2xl bg-brand-50 dark:bg-brand-950/50 text-brand-600 dark:text-brand-400 flex items-center justify-center text-3xl sm:text-4xl shadow-inner border border-brand-100 dark:border-brand-900/40">
           <i class="fa-solid fa-hard-drive"></i>
@@ -183,15 +183,15 @@
         </p>
 
         <!-- Hidden input for file selection fallback -->
-        <input type="file" id="csvFileInput" accept=".csv,text/csv,text/plain" class="hidden" />
+        <input type="file" id="csvFileInput" accept=".csv,text/csv,text/plain,.txt" class="hidden" />
 
         <div class="flex flex-wrap items-center justify-center gap-3">
-          <button id="browseFileBtn" class="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white font-medium text-sm shadow-md shadow-brand-500/20 transition-all cursor-pointer">
+          <label for="csvFileInput" id="browseFileBtn" class="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white font-medium text-sm shadow-md shadow-brand-500/20 transition-all cursor-pointer select-none">
             <i class="fa-solid fa-folder-open"></i>
             <span>Select Local CSV File</span>
-          </button>
+          </label>
           
-          <button id="loadSampleHeroBtn" class="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium text-sm border border-slate-200 dark:border-slate-700 transition-all cursor-pointer">
+          <button type="button" id="loadSampleHeroBtn" class="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium text-sm border border-slate-200 dark:border-slate-700 transition-all cursor-pointer">
             <i class="fa-solid fa-wand-magic-sparkles text-brand-500"></i>
             <span>Load Sample Data</span>
           </button>
@@ -1535,10 +1535,9 @@ Core Banking,SYS-505,Ian Malcolm,Sarah Jenkins,ISS-1012,Cleartext transmission o
         }
       });
 
-      // Direct Local File Access: trigger file input directly for reliable cross-browser execution
+      // Direct Local File Access: reset file input on click so re-selecting the same file also triggers change
       elements.browseFileBtn.addEventListener('click', () => {
         elements.csvFileInput.value = '';
-        elements.csvFileInput.click();
       });
 
       elements.csvFileInput.addEventListener('change', (e) => {
